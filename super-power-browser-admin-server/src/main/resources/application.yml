@@ -1,0 +1,13 @@
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/super_power_browser?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC}
+    username: ${DB_USER:superpower}
+    password: ${DB_PASSWORD:}
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+server:
+  port: ${OPS_PORT:18082}
+logging:
+  level:
+    root: INFO
