@@ -13,7 +13,7 @@ public class SharedSchema {
     public SharedSchema(DataSource source) { this.source=source; }
     public void verify() {
         try(var connection=source.getConnection()) { verify(connection); }
-        catch(SQLException e) { throw new IllegalStateException("共享数据库尚未准备好，请先完成业务服务截至 V28 的数据库迁移，再启动运营服务",e); }
+        catch(SQLException e) { throw new IllegalStateException("共享数据库尚未准备好，请先完成业务服务截至 V28 及内核版本表的数据库迁移，再启动运营服务",e); }
     }
     public static void verify(Connection connection) throws SQLException {
         var selects=List.of(
@@ -30,7 +30,9 @@ public class SharedSchema {
             "SELECT device_id,node_id,sort_order,created_at FROM device_relay_node WHERE 1=0",
             "SELECT id,name FROM tenant WHERE 1=0",
             "SELECT id,name,tenant_id,created_by,ip_type,relay_binding_revision,host,port,protocol,username,CASE WHEN password<>'' THEN TRUE ELSE FALSE END AS has_password,region,provider,map_ip,map_port,web_type,expires_at,recycled,created_at,check_connected,check_ip,check_country_name,check_latency_ms,check_message,checked_at FROM device WHERE 1=0",
-            "SELECT id,name,tenant_id,device_id,platform,owner_id,recycled,last_opened_at,created_at FROM environment WHERE 1=0");
+            "SELECT id,name,tenant_id,device_id,platform,owner_id,recycled,last_opened_at,created_at FROM environment WHERE 1=0",
+            "SELECT id,version,platform,arch,full_version,sha256,archive_bytes,descriptor,storage_type,storage_key,state,recommended,revision,created_at,updated_at FROM kernel_release WHERE 1=0",
+            "SELECT id FROM kernel_catalog_lock WHERE id=1");
         for(String sql:selects)try(var statement=connection.createStatement();var ignored=statement.executeQuery(sql)) { }
         var metadata=connection.getMetaData();
         String device=metadata.storesUpperCaseIdentifiers()?"DEVICE":"device";

@@ -25,6 +25,9 @@
         >环境默认值</el-menu-item
       ></el-sub-menu
     >
+    <el-menu-item index="/kernels"
+      ><el-icon><Cpu /></el-icon
+      ><template #title>浏览器内核</template></el-menu-item>
     <el-menu-item index="/platform-sites"
       ><el-icon><Connection /></el-icon
       ><template #title>平台站点</template></el-menu-item
@@ -61,6 +64,7 @@
 import { useRoute } from "vue-router";
 import {
   Connection,
+  Cpu,
   Document,
   Monitor,
   Odometer,

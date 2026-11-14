@@ -3,7 +3,7 @@ $ErrorActionPreference='Stop'
 $serverRoot=Split-Path $PSScriptRoot -Parent
 $envFile=Join-Path $serverRoot '.env'
 if(Test-Path -LiteralPath $envFile){
-    $allowed=@('DB_URL','DB_USER','DB_PASSWORD','OPS_PORT','OPS_ADMIN_USERNAME','OPS_ADMIN_PASSWORD','APP_DATA_KEY')
+    $allowed=@('DB_URL','DB_USER','DB_PASSWORD','OPS_PORT','OPS_ADMIN_USERNAME','OPS_ADMIN_PASSWORD','APP_DATA_KEY','KERNEL_S3_BUCKET','KERNEL_S3_ENDPOINT','KERNEL_S3_REGION','KERNEL_S3_PREFIX','KERNEL_S3_PATH_STYLE','KERNEL_S3_ALLOW_HTTP','KERNEL_URL_MINUTES')
     foreach($line in Get-Content -LiteralPath $envFile -Encoding UTF8){
         if($line.Trim().StartsWith('#') -or -not $line.Contains('=')){continue}
         $pair=$line -split '=',2

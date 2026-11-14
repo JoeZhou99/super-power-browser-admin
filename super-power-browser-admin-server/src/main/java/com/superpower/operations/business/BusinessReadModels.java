@@ -69,7 +69,7 @@ public class BusinessReadModels {
         } catch (RuntimeException missingSchema) { return unavailable("技能目录表尚未接入新后台数据库", page); }
     }
 
-    private long count(String sql, List<Object> args) { var records = db.select(sql, args.toArray()); return records.isEmpty() ? 0 : Long.parseLong(text(records.get(0), "total")); }
+    private long count(String sql, List<Object> args) { var records = db.select(sql, args.toArray()); return records.isEmpty() ? 0 : Long.parseLong(text(row(records.get(0)), "total")); }
     private static Map<String, Object> result(List<Map<String, Object>> records, long total, Page page) { var result = new LinkedHashMap<String, Object>(); result.put("items", records); result.put("total", total); result.put("page", page.number); result.put("size", page.size); result.put("integrationRequired", false); return result; }
     private static Map<String, Object> unavailable(String message, Page page) { var result = new LinkedHashMap<String, Object>(); result.put("items", List.of()); result.put("total", 0); result.put("page", page.number); result.put("size", page.size); result.put("integrationRequired", true); result.put("message", message); return result; }
     private static Page page(Map<String, String> query) { return new Page(integer(query, "page", 1, 1, Integer.MAX_VALUE), integer(query, "size", 20, 1, 100)); }

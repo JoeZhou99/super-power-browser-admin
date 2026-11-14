@@ -46,6 +46,19 @@ class OperationsIntegrationTest {
                     )
                     """);
                 statement.execute("CREATE INDEX device_relay_node_reverse ON device_relay_node(node_id,device_id)");
+                statement.execute("CREATE TABLE kernel_catalog_lock (id INT PRIMARY KEY)");
+                statement.execute("INSERT INTO kernel_catalog_lock(id) VALUES(1)");
+                statement.execute("""
+                    CREATE TABLE kernel_release (
+                      id VARCHAR(36) PRIMARY KEY, version VARCHAR(30) NOT NULL, platform VARCHAR(20) NOT NULL,
+                      arch VARCHAR(20) NOT NULL, full_version VARCHAR(50) NOT NULL, sha256 VARCHAR(64) NOT NULL,
+                      archive_bytes BIGINT NOT NULL, descriptor CLOB NOT NULL, storage_type VARCHAR(10) NOT NULL,
+                      storage_key VARCHAR(512) NOT NULL, object_version VARCHAR(200), state VARCHAR(16) NOT NULL,
+                      recommended BOOLEAN NOT NULL DEFAULT FALSE, revision BIGINT NOT NULL DEFAULT 0,
+                      created_by VARCHAR(36), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(version,platform,arch)
+                    )
+                    """);
             }
         }
     }

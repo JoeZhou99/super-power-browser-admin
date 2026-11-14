@@ -46,6 +46,11 @@ const router = createRouter({
           meta: { title: "环境默认值", group: "环境选项" },
         },
         {
+          path: "kernels",
+          component: () => import("./views/Kernels.vue"),
+          meta: { title: "浏览器内核", group: "运行时管理" },
+        },
+        {
           path: "platform-sites",
           component: () => import("./views/Platforms.vue"),
           meta: { title: "平台站点" },
