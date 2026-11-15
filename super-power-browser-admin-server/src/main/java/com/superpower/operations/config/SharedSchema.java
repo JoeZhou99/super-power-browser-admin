@@ -13,12 +13,12 @@ public class SharedSchema {
     public SharedSchema(DataSource source) { this.source=source; }
     public void verify() {
         try(var connection=source.getConnection()) { verify(connection); }
-        catch(SQLException e) { throw new IllegalStateException("共享数据库尚未准备好，请先完成业务服务截至 V28 及内核版本表的数据库迁移，再启动运营服务",e); }
+        catch(SQLException e) { throw new IllegalStateException("共享数据库尚未准备好，请先完成业务服务截至 V31 的数据库迁移（包含账号店铺额度表），再启动运营服务",e); }
     }
     public static void verify(Connection connection) throws SQLException {
         var selects=List.of(
             "SELECT token_hash,user_id,expires_at FROM auth_session WHERE 1=0",
-            "SELECT id,tenant_id,username,display_name,enabled,deleted FROM app_user WHERE 1=0",
+            "SELECT id,tenant_id,username,display_name,enabled,deleted,department_id FROM app_user WHERE 1=0",
             "SELECT id,username,password_hash,enabled,created_at FROM config_operator WHERE 1=0",
             "SELECT token_hash,operator_id,expires_at,created_at FROM config_operator_session WHERE 1=0",
             "SELECT config_key,payload,revision,updated_at FROM browser_config WHERE 1=0",
@@ -29,8 +29,11 @@ public class SharedSchema {
             "SELECT pool_id,tenant_id,enabled,expires_at FROM relay_pool_tenant WHERE 1=0",
             "SELECT device_id,node_id,sort_order,created_at FROM device_relay_node WHERE 1=0",
             "SELECT id,name FROM tenant WHERE 1=0",
+            "SELECT id,tenant_id,name,is_default,deleted FROM department WHERE 1=0",
             "SELECT id,name,tenant_id,created_by,ip_type,relay_binding_revision,host,port,protocol,username,CASE WHEN password<>'' THEN TRUE ELSE FALSE END AS has_password,region,provider,map_ip,map_port,web_type,expires_at,recycled,created_at,check_connected,check_ip,check_country_name,check_latency_ms,check_message,checked_at FROM device WHERE 1=0",
             "SELECT id,name,tenant_id,device_id,platform,owner_id,recycled,last_opened_at,created_at FROM environment WHERE 1=0",
+            "SELECT user_id,tenant_id,limit_count,enabled,revision,note,updated_by,created_at,updated_at FROM shop_creation_quota WHERE 1=0",
+            "SELECT id,tenant_id,user_id,operator_id,operator_name,before_limit,after_limit,before_enabled,after_enabled,before_revision,after_revision,reason,created_at FROM shop_quota_audit WHERE 1=0",
             "SELECT id,version,platform,arch,full_version,sha256,archive_bytes,descriptor,storage_type,storage_key,state,recommended,revision,created_at,updated_at FROM kernel_release WHERE 1=0",
             "SELECT id FROM kernel_catalog_lock WHERE id=1");
         for(String sql:selects)try(var statement=connection.createStatement();var ignored=statement.executeQuery(sql)) { }
@@ -50,9 +53,9 @@ public class SharedSchema {
         if(quote.isEmpty())throw new SQLException("Cannot quote the business migration history");
         String history=quote+"flyway_schema_history"+quote,version=quote+"version"+quote,success=quote+"success"+quote;
         try(var statement=connection.prepareStatement("SELECT "+success+" FROM "+history+" WHERE "+version+"=?")) {
-            statement.setString(1,"28");
+            statement.setString(1,"31");
             try(var result=statement.executeQuery()) {
-                if(!result.next()||!result.getBoolean(1))throw new SQLException("Successful business migration V28 is required for explicit proxy relay bindings");
+                if(!result.next()||!result.getBoolean(1))throw new SQLException("Successful business migration V31 is required for account shop quotas");
             }
         }
     }

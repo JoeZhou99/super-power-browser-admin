@@ -67,6 +67,11 @@ const router = createRouter({
           meta: { title: "用户与成员", group: "业务管理" },
         },
         {
+          path: "business/account-quotas",
+          component: () => import("./views/AccountQuotas.vue"),
+          meta: { title: "店铺创建额度", group: "业务管理" },
+        },
+        {
           path: "business/orders",
           component: () => import("./views/Orders.vue"),
           meta: { title: "订单与收支", group: "业务管理" },

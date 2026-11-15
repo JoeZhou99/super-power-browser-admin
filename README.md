@@ -7,7 +7,7 @@
 | [super-power-browser-admin-web](super-power-browser-admin-web/README.md) | Vue 3 + Element Plus 运营管理页面 | http://127.0.0.1:3200 |
 | [super-power-browser-admin-server](super-power-browser-admin-server/README.md) | 独立 Java 运营配置服务 | http://127.0.0.1:18082 |
 
-运营服务与 `super-power-browser-server` **共用数据库**，不依赖其源码或 Maven 模块，两端独立构建和发布。管理页面的 `/api/admin/**` 请求指向本项目独立服务。共享数据库结构由业务服务迁移，需要先完成 V27；运营服务只读验证共享结构及业务 Flyway 的 V27 成功记录，不运行迁移。V26 支持 SS 节点，V27 修复 H2 更换迁移连接池后节点写入失败的问题。
+运营服务与 `super-power-browser-server` **共用数据库**，不依赖其源码或 Maven 模块，两端独立构建和发布。管理页面的 `/api/admin/**` 请求指向本项目独立服务。共享数据库结构由业务服务迁移，需要先完成 V31；运营服务只读验证共享结构及业务 Flyway 的 V31 成功记录，不运行迁移。V26 支持 SS 节点，V27 修复 H2 更换迁移连接池后节点写入失败的问题，V31 增加账号级店铺创建额度及审计表。
 
 ## 当前配置范围
 
@@ -40,7 +40,7 @@
 
 ## 启动
 
-先更新业务服务并完成 V27 数据迁移，再启动运营服务。复制 `super-power-browser-admin-server/.env.example` 为 `.env`，配置同一个 MySQL 数据库的 `DB_URL/DB_USER/DB_PASSWORD`，以及与业务服务相同的 `APP_DATA_KEY`，按服务端说明填写首次运营账号。中继密码由运营服务加密，业务服务解密下发；密钥不一致会导致连接失败。
+先更新业务服务并完成 V31 数据迁移，再启动运营服务。复制 `super-power-browser-admin-server/.env.example` 为 `.env`，配置同一个 MySQL 数据库的 `DB_URL/DB_USER/DB_PASSWORD`，以及与业务服务相同的 `APP_DATA_KEY`，按服务端说明填写首次运营账号。中继密码由运营服务加密，业务服务解密下发；密钥不一致会导致连接失败。
 
 ```powershell
 # 在服务端目录

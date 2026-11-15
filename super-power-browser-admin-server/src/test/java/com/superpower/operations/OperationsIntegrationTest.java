@@ -30,7 +30,7 @@ class OperationsIntegrationTest {
     private String base;
     private long businessHistoryRows;
 
-    /** Isolated shared-schema fixture; production V28 remains owned by the business service. */
+    /** Isolated shared-schema fixture; production V31 remains owned by the business service. */
     private static class V28__device_relay_bindings extends BaseJavaMigration {
         @Override public void migrate(Context context) throws Exception {
             try(var statement=context.getConnection().createStatement()) {
@@ -63,11 +63,27 @@ class OperationsIntegrationTest {
         }
     }
 
+    /** Minimal quota tables owned by the business V31 migration. */
+    private static class V31__shop_creation_quotas extends BaseJavaMigration {
+        @Override public void migrate(Context context) throws Exception {
+            try(var statement=context.getConnection().createStatement()) {
+                statement.execute("ALTER TABLE app_user ADD COLUMN department_id VARCHAR(36)");
+                statement.execute("CREATE TABLE department (id VARCHAR(36) PRIMARY KEY, tenant_id VARCHAR(36) NOT NULL, name VARCHAR(100) NOT NULL, is_default BOOLEAN NOT NULL DEFAULT FALSE, deleted BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP)");
+                statement.execute("CREATE INDEX department_tenant ON department(tenant_id,deleted)");
+                statement.execute("CREATE INDEX environment_owner_scope ON environment(tenant_id,owner_id)");
+                statement.execute("CREATE TABLE shop_creation_quota (user_id VARCHAR(36) PRIMARY KEY, tenant_id VARCHAR(36) NOT NULL, limit_count BIGINT NOT NULL DEFAULT -1, enabled BOOLEAN NOT NULL DEFAULT TRUE, revision BIGINT NOT NULL DEFAULT 1, note VARCHAR(500) NOT NULL DEFAULT '', updated_by VARCHAR(36), created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, CONSTRAINT shop_creation_quota_limit CHECK(limit_count BETWEEN -1 AND 1000000), FOREIGN KEY(user_id) REFERENCES app_user(id), FOREIGN KEY(tenant_id) REFERENCES tenant(id))");
+                statement.execute("CREATE INDEX shop_creation_quota_tenant ON shop_creation_quota(tenant_id)");
+                statement.execute("CREATE TABLE shop_quota_audit (id VARCHAR(36) PRIMARY KEY, tenant_id VARCHAR(36) NOT NULL, user_id VARCHAR(36) NOT NULL, operator_id VARCHAR(36) NOT NULL, operator_name VARCHAR(80) NOT NULL, before_limit BIGINT, after_limit BIGINT NOT NULL, before_enabled BOOLEAN, after_enabled BOOLEAN NOT NULL, before_revision BIGINT, after_revision BIGINT NOT NULL, reason VARCHAR(500) NOT NULL DEFAULT '', created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY(tenant_id) REFERENCES tenant(id), FOREIGN KEY(user_id) REFERENCES app_user(id))");
+                statement.execute("CREATE INDEX shop_quota_audit_user ON shop_quota_audit(tenant_id,user_id,created_at)");
+            }
+        }
+    }
+
     @BeforeAll void start() {
         String url="jdbc:h2:mem:operations-"+UUID.randomUUID()+";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
         try(var source=new HikariDataSource()) {
             source.setJdbcUrl(url);source.setUsername("sa");source.setPassword("");
-            Flyway.configure().dataSource(source).locations("classpath:db/legacy","classpath:db/relay").javaMigrations(new V28__device_relay_bindings()).load().migrate();
+            Flyway.configure().dataSource(source).locations("classpath:db/legacy","classpath:db/relay").javaMigrations(new V28__device_relay_bindings(),new V31__shop_creation_quotas()).load().migrate();
             var old=new JdbcTemplate(source);
             businessHistoryRows=old.queryForObject("SELECT COUNT(*) FROM flyway_schema_history",Long.class);
             old.update("INSERT INTO browser_config(config_key,payload,revision) VALUES('languages',?,7)",json(Map.of("entries",List.of(Map.of("value","zh-CN","label","Existing Chinese","enabled",true,"sortOrder",0),Map.of("value","en-US","label","English","enabled",true,"sortOrder",1)))));
@@ -169,6 +185,32 @@ class OperationsIntegrationTest {
         assertEquals(200,call("POST","/api/admin/auth/logout",token,Map.of()).statusCode());
         assertEquals(401,call("GET","/api/admin/auth/me",token,null).statusCode());
     }
+
+    @Test @SuppressWarnings("unchecked") void accountShopQuotasAreVersionedAuditedAndShownWithDepartmentUsage() {
+        jdbc.update("INSERT INTO tenant(id,name) VALUES('quota-tenant','Quota tenant')");
+        jdbc.update("INSERT INTO department(id,tenant_id,name) VALUES('quota-department','quota-tenant','Operations')");
+        jdbc.update("INSERT INTO app_user(id,tenant_id,username,display_name,department_id) VALUES('quota-user','quota-tenant','quota_user','Quota user','quota-department')");
+        jdbc.update("INSERT INTO environment(id,tenant_id,owner_id,name,platform) VALUES('quota-shop','quota-tenant','quota-user','Existing quota shop','test')");
+        String path="/api/admin/account-quotas";
+        assertEquals(401,call("GET",path,null,null).statusCode());
+        String token=token();
+        var initial=body(call("GET",path+"?tenantId=quota-tenant",token,null),200);
+        List<Map<String,Object>> items=(List<Map<String,Object>>)initial.get("items");
+        assertEquals(1,items.size());
+        var row=items.get(0);
+        assertEquals("Operations",row.get("departmentName"));
+        assertEquals(1L,number(row,"usedCount"));
+        assertEquals(-1L,number(row,"limitCount"));
+        assertEquals(1L,number(initial,"total"));
+        var saved=body(call("PUT",path+"/quota-user",token,Map.of("limitCount",2,"enabled",true,"note","pilot")),200);
+        assertEquals(1L,number(saved,"revision"));
+        assertEquals(2L,number(saved,"limitCount"));
+        assertEquals(1L,number(saved,"usedCount"));
+        assertEquals(1,((List<?>)body(call("GET",path+"/quota-user/audit",token,null),200).get("items")).size());
+        body(call("PUT",path+"/quota-user",token,Map.of("limitCount",3,"revision",0)),409);
+        body(call("PUT",path+"/quota-user",token,Map.of("limitCount",1_000_001)),400);
+    }
+
     @Test void publishedConfigurationUsesOptimisticRevisionAndIsVisibleThroughSharedTables() {
         String token=token();var before=body(call("GET","/api/admin/configs/languages",token,null),200);
         long revision=number(before,"revision"),total=number(configs.audit(operator,1,20),"total");

@@ -41,6 +41,7 @@
     <el-sub-menu index="/business">
       <template #title><el-icon><User /></el-icon><span>业务管理</span></template>
       <el-menu-item index="/business/members">用户与成员</el-menu-item>
+      <el-menu-item index="/business/account-quotas">店铺创建额度</el-menu-item>
       <el-menu-item index="/business/orders">订单与收支</el-menu-item>
     </el-sub-menu>
     <el-sub-menu index="/ai">
