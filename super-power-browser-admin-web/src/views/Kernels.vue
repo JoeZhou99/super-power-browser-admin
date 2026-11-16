@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { Refresh, Search, Upload, CircleCheck, VideoPause, Plus } from "@element-plus/icons-vue";
+import { Refresh, Search, Upload, CircleCheck, VideoPause, VideoPlay, Plus } from "@element-plus/icons-vue";
 import { errorMessage, formatDate } from "../api";
 import { kernelApi, kernelBytes, kernelPlatform, type KernelRelease } from "../kernelApi";
 
@@ -92,6 +92,13 @@ async function disable(row: KernelRelease) {
   catch (reason) { ElMessage.error(errorMessage(reason)); }
 }
 
+async function restore(row: KernelRelease) {
+  try { await ElMessageBox.confirm(`恢复 ${row.version} 后，新店铺可以重新选择它，但不会自动成为推荐版本。`, "恢复内核", { type: "warning", confirmButtonText: "确认恢复", cancelButtonText: "取消" }); }
+  catch { return; }
+  try { await kernelApi.restore(row.id); ElMessage.success("内核已恢复"); await load(); }
+  catch (reason) { ElMessage.error(errorMessage(reason)); }
+}
+
 function uploadDraft(row: KernelRelease) { draftRelease.value = row; archiveInput.value?.click(); }
 async function onDraftArchive(event: Event) {
   const row = draftRelease.value; const file = (event.target as HTMLInputElement).files?.[0];
@@ -145,7 +152,7 @@ onMounted(load);
         <el-table-column label="存储" width="100"><template #default="{ row }">{{ row.storageType }}</template></el-table-column>
         <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="stateType(row.state)" effect="light">{{ stateLabel(row.state) }}</el-tag></template></el-table-column>
         <el-table-column label="更新时间" width="175"><template #default="{ row }">{{ formatDate(row.updatedAt || row.createdAt) }}</template></el-table-column>
-        <el-table-column label="操作" width="300" fixed="right"><template #default="{ row }"><el-button v-if="row.state === 'PUBLISHED'" link type="primary" :disabled="working" @click="download(row)">下载</el-button><el-button v-if="row.state === 'DRAFT'" link type="primary" :icon="Upload" :disabled="working" @click="uploadDraft(row)">上传并发布</el-button><el-button v-if="row.state === 'PUBLISHED' && !row.recommended" link type="primary" :icon="CircleCheck" :disabled="working" @click="recommend(row)">设为推荐</el-button><el-button v-if="row.state === 'PUBLISHED'" link type="danger" :icon="VideoPause" :disabled="working" @click="disable(row)">停用</el-button><span v-if="row.state === 'DISABLED'" class="muted">已停止提供</span></template></el-table-column>
+        <el-table-column label="操作" width="330" fixed="right"><template #default="{ row }"><el-button v-if="row.state === 'PUBLISHED'" link type="primary" :disabled="working" @click="download(row)">下载</el-button><el-button v-if="row.state === 'DRAFT'" link type="primary" :icon="Upload" :disabled="working" @click="uploadDraft(row)">上传并发布</el-button><el-button v-if="row.state === 'PUBLISHED' && !row.recommended" link type="primary" :icon="CircleCheck" :disabled="working" @click="recommend(row)">设为推荐</el-button><el-button v-if="row.state === 'PUBLISHED'" link type="danger" :icon="VideoPause" :disabled="working" @click="disable(row)">停用</el-button><el-button v-if="row.state === 'DISABLED'" link type="primary" :icon="VideoPlay" :disabled="working" @click="restore(row)">恢复</el-button></template></el-table-column>
       </el-table>
     </el-card>
 

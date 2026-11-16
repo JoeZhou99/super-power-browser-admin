@@ -27,4 +27,5 @@ public class KernelController {
     @PostMapping("/{id}/publish") public Object publish(@AuthenticationPrincipal ConfigOperator operator, @PathVariable String id, @RequestBody Map<String, Object> body) { return releases.publish(operator, id, body); }
     @PostMapping("/{id}/recommend") public Object recommend(@AuthenticationPrincipal ConfigOperator operator, @PathVariable String id) { return releases.recommend(operator, id); }
     @PostMapping("/{id}/disable") public Object disable(@AuthenticationPrincipal ConfigOperator operator, @PathVariable String id) { return releases.disable(operator, id); }
+    @PostMapping("/{id}/restore") public Object restore(@AuthenticationPrincipal ConfigOperator operator, @PathVariable String id) { return releases.restore(operator, id); }
 }

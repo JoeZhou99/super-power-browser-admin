@@ -87,6 +87,14 @@ public class KernelReleases {
         var result = view(row(id)); audit(operator, "kernel.disable", result, view(current)); return result;
     }
 
+    @Transactional
+    public Map<String, Object> restore(ConfigOperator operator, String id) {
+        operators.requireActive(operator); lock();
+        var current = row(id); require(text(current, "state").equals("DISABLED"), 409, "Only disabled kernels can be restored");
+        db.execute("UPDATE kernel_release SET state='PUBLISHED',recommended=FALSE,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE id=?", id);
+        var result = view(row(id)); audit(operator, "kernel.restore", result, view(current)); return result;
+    }
+
     private void clearRecommended(Map<String, Object> entry) {
         db.execute("UPDATE kernel_release SET recommended=FALSE,revision=revision+1,updated_at=CURRENT_TIMESTAMP WHERE platform=? AND arch=? AND recommended=TRUE",
             text(entry, "platform"), text(entry, "arch"));
