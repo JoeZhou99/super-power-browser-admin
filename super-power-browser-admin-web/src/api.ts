@@ -10,7 +10,8 @@ export type ConfigKey =
   | "access-policy"
   | "network-checks"
   | "relay-pools"
-  | "passkey-rules";
+  | "passkey-rules"
+  | "free-proxies";
 export interface AdminUser {
   id: string;
   username: string;
@@ -70,6 +71,7 @@ export const configTitles: Record<ConfigKey, string> = {
   "network-checks": "IP 检测",
   "relay-pools": "中继分组",
   "passkey-rules": "Passkey 规则",
+  "free-proxies": "免费 VPS 代理",
 };
 const tokenKey = "super-power-operations-token";
 export const auth = reactive<{ user: AdminUser | null }>({ user: null });

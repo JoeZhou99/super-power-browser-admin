@@ -35,6 +35,7 @@
     <el-sub-menu index="/proxy">
       <template #title><el-icon><SetUp /></el-icon><span>代理管理</span></template>
       <el-menu-item index="/proxy/list">客户代理</el-menu-item>
+      <el-menu-item index="/proxy/free-vps">免费 VPS 代理</el-menu-item>
       <el-menu-item index="/proxy/relays">中继池</el-menu-item>
       <el-menu-item index="/proxy/groups">中继分组</el-menu-item>
     </el-sub-menu>

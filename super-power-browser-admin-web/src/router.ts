@@ -62,6 +62,11 @@ const router = createRouter({
           meta: { title: "客户代理", group: "代理管理" },
         },
         {
+          path: "proxy/free-vps",
+          component: () => import("./views/FreeVps.vue"),
+          meta: { title: "免费 VPS 代理", group: "代理管理" },
+        },
+        {
           path: "business/members",
           component: () => import("./views/Members.vue"),
           meta: { title: "用户与成员", group: "业务管理" },

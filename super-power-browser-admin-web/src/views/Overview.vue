@@ -33,6 +33,7 @@ const links: Record<ConfigKey, string> = {
   "network-checks": "/network/checks",
   "relay-pools": "/proxy/groups",
   "passkey-rules": "/network/passkey",
+  "free-proxies": "/proxy/free-vps",
 };
 const cards = computed(() => [
   {

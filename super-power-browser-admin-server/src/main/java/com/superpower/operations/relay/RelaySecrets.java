@@ -28,4 +28,12 @@ public class RelaySecrets {
         catch(IllegalArgumentException e){throw new BusinessException(503,"APP_DATA_KEY 格式不正确");}
         catch(Exception e){throw new IllegalStateException("中继凭据加密失败",e);}
     }
+    public String decrypt(String stored) {
+        if(stored==null||stored.isEmpty()) return "";
+        try {
+            byte[] key=Base64.getDecoder().decode(configuredKey);require(key.length==32,503,"APP_DATA_KEY 必须是 32 字节密钥的 Base64 编码");
+            String[] parts=stored.split(":",2);Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.DECRYPT_MODE,new SecretKeySpec(key,"AES"),new GCMParameterSpec(128,Base64.getDecoder().decode(parts[0])));
+            return new String(cipher.doFinal(Base64.getDecoder().decode(parts[1])),StandardCharsets.UTF_8);
+        } catch(BusinessException e){throw e;} catch(Exception e){throw new BusinessException(503,"免费代理凭据解密失败，请检查 APP_DATA_KEY");}
+    }
 }

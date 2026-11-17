@@ -1,6 +1,7 @@
 package com.superpower.operations.config;
 
 import com.superpower.operations.shared.*;
+import com.superpower.operations.relay.RelaySecrets;
 import java.net.URI;
 import java.time.ZoneId;
 import java.util.*;
@@ -20,11 +21,12 @@ public class BrowserConfiguration {
         titles.put("timezones","时区");titles.put("languages","浏览器语言");titles.put("resolutions","窗口尺寸");
         titles.put("browser-defaults","新建店铺默认值");titles.put("platform-sites","平台站点");
         titles.put("network-routing","网络分流");titles.put("access-policy","访问控制");
-        titles.put("network-checks","网络检测");titles.put("passkey-rules","Passkey 规则");TITLES=Collections.unmodifiableMap(titles);
+        titles.put("network-checks","网络检测");titles.put("passkey-rules","Passkey 规则");titles.put("free-proxies","免费 VPS 代理");TITLES=Collections.unmodifiableMap(titles);
     }
     private final Db db;
     private final ConfigOperatorAuth operators;
-    public BrowserConfiguration(Db db,ConfigOperatorAuth operators) { this.db=db;this.operators=operators; }
+    private final RelaySecrets secrets;
+    public BrowserConfiguration(Db db,ConfigOperatorAuth operators,RelaySecrets secrets) { this.db=db;this.operators=operators;this.secrets=secrets; }
 
     @Transactional public void initialize() {
         lock();
@@ -33,6 +35,7 @@ public class BrowserConfiguration {
         seed("resolutions",Map.of("entries",resolutionSeeds()));
         seed("browser-defaults",Map.of("values",Map.of("timezone","Asia/Shanghai","language","zh-CN","resolution","1920x1080")));
         seed("platform-sites",Map.of()); // The existing platform_site catalog remains the source of truth.
+        seed("free-proxies",Map.of("entries",List.of()));
         for(String key:RuntimeRules.FIELDS.keySet())seed(key,Map.of("values",RuntimeRules.defaults(key)));
     }
     private void seed(String key,Map<String,Object> payload) {
@@ -71,7 +74,11 @@ public class BrowserConfiguration {
         var meta=metadata(key);var result=new LinkedHashMap<String,Object>();
         result.put("key",key);result.put("title",TITLES.get(key));result.put("revision",meta.get("revision"));result.put("updatedAt",meta.get("updatedAt"));
         if(key.equals("platform-sites")) result.put("entries",platforms());
+        else if(key.equals("free-proxies")) result.put("entries",freeProxies(object(text(meta,"payload"))));
         else result.putAll(object(text(meta,"payload")));return result;
+    }
+    private List<Map<String,Object>> freeProxies(Map<String,Object> payload) {
+        return entries(payload).stream().map(row->{var copy=new LinkedHashMap<String,Object>(row);copy.put("password",secrets.decrypt(text(row,"password")));return copy;}).toList();
     }
     private List<Map<String,Object>> platforms() {
         return rows(db.select("SELECT id,category_name,platform_name,site_name,url,enabled,sort_order FROM platform_site ORDER BY sort_order,id"));
@@ -86,6 +93,7 @@ public class BrowserConfiguration {
         if(key.equals("browser-defaults")) next=Map.of("values",validateDefaults(request));
         else if(RuntimeRules.FIELDS.containsKey(key))next=Map.of("values",RuntimeRules.validate(key,values(request)));
         else if(key.equals("platform-sites")) next=Map.of("entries",validatePlatforms(request,entries(before)));
+        else if(key.equals("free-proxies")) next=Map.of("entries",validateFreeProxies(request));
         else next=Map.of("entries",validateEntries(key,request));
         if(DEFAULT_GROUPS.containsValue(key)||key.equals("browser-defaults")) {
             var defaults=key.equals("browser-defaults")?values(next):values(payload("browser-defaults"));
@@ -144,6 +152,17 @@ public class BrowserConfiguration {
         }
         require(seen.containsAll(existing),400,"已有平台站点不能删除，请改为停用，以保留历史店铺关联");
         require(result.stream().anyMatch(e->flag(e,"enabled")),400,"至少保留一个启用站点");return result;
+    }
+    private List<Map<String,Object>> validateFreeProxies(Map<String,Object> request) {
+        var input=entries(request);require(input.size()<=500,400,"免费代理最多配置 500 条");
+        var ids=new HashSet<String>();var result=new ArrayList<Map<String,Object>>();
+        for(var row:input) {
+            String id=string(row,"id",120),name=string(row,"name",120),protocol=string(row,"protocol",10).toLowerCase(Locale.ROOT),host=string(row,"host",255),username=string(row,"username",255),password=string(row,"password",1000),region=string(row,"region",150),provider=string(row,"provider",150),description=string(row,"description",500);
+            require(ids.add(id),400,"免费代理 ID 重复");require(Set.of("http","https","socks5","socks4","socks4a","ssh","ss","ssr","vmess","vless").contains(protocol),400,"代理协议不支持");
+            long port=number(row,"port"),stock=number(row,"stock");require(port>=1&&port<=65535,400,"代理端口不合法");require(stock>=0&&stock<=1_000_000,400,"库存数量不合法");
+            var value=new LinkedHashMap<String,Object>();value.put("id",id);value.put("name",name);value.put("protocol",protocol);value.put("host",host);value.put("port",port);value.put("username",username);value.put("password",secrets.encrypt(password));value.put("region",region);value.put("provider",provider);value.put("stock",stock);value.put("enabled",enabled(row));value.put("description",description);result.add(value);
+        }
+        return result;
     }
     private void savePlatforms(List<Map<String,Object>> entries) {
         for(var row:entries) {
