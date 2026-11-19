@@ -68,3 +68,11 @@ npm run dev
 本机旧预览若使用独占模式 H2 文件，不能直接让第二个 JVM 打开同一文件；可为两服务配置同一 MySQL/H2 TCP 数据源进行联调。此项目不会修改原预览脚本、复制真实数据库或重启原进程。
 
 前端来源与许可见 [UPSTREAM.md](UPSTREAM.md)、[LICENSE](LICENSE)。
+
+## Quick backend startup
+
+From the project root, run `dev.cmd` (or `powershell -ExecutionPolicy Bypass -File .\dev.ps1`) to build and start the admin API.
+
+Use `dev.cmd -NoBuild` to start the existing JAR without rebuilding, `dev.cmd -Port 18082` to override the API port, and `dev.cmd -Stop` to stop the backend. Runtime logs and PID files are written under `super-power-browser-admin-server\.dev`.
+
+The backend-only entry point is also available at `super-power-browser-admin-server\dev.cmd` and supports `-Build`, `-Port 18082`, and `-Stop`.

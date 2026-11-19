@@ -78,7 +78,7 @@ public class BrowserConfiguration {
         else result.putAll(object(text(meta,"payload")));return result;
     }
     private List<Map<String,Object>> freeProxies(Map<String,Object> payload) {
-        return entries(payload).stream().map(row->{var copy=new LinkedHashMap<String,Object>(row);copy.put("password",secrets.decrypt(text(row,"password")));return copy;}).toList();
+        return entries(payload).stream().map(row->{Map<String,Object> copy=new LinkedHashMap<>(row);copy.put("password",secrets.decrypt(text(row,"password")));return copy;}).toList();
     }
     private List<Map<String,Object>> platforms() {
         return rows(db.select("SELECT id,category_name,platform_name,site_name,url,enabled,sort_order FROM platform_site ORDER BY sort_order,id"));

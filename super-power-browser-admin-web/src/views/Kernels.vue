@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Refresh, Search, Upload, CircleCheck, VideoPause, VideoPlay, Plus } from "@element-plus/icons-vue";
 import { errorMessage, formatDate } from "../api";
@@ -17,9 +17,12 @@ const archive = ref<File>();
 const recommended = ref(true);
 const formError = ref("");
 const working = ref(false);
+const actionWorking = ref(false);
 const archiveInput = ref<HTMLInputElement>();
 const importArchiveInput = ref<HTMLInputElement>();
 const draftRelease = ref<KernelRelease>();
+let loadVersion = 0;
+let disposed = false;
 
 const filtered = computed(() => releases.value.filter((row) => {
   const query = `${row.version} ${row.fullVersion} ${row.platform} ${row.arch} ${row.sha256}`.toLowerCase();
@@ -29,14 +32,24 @@ const filtered = computed(() => releases.value.filter((row) => {
 }));
 
 async function load() {
+  const version = ++loadVersion;
   loading.value = true; error.value = "";
-  try { releases.value = (await kernelApi.list()).items; }
-  catch (reason) { error.value = errorMessage(reason); }
-  finally { loading.value = false; }
+  try {
+    const result = await kernelApi.list();
+    if (version === loadVersion && !disposed) releases.value = result.items;
+  }
+  catch (reason) {
+    if (version === loadVersion && !disposed) error.value = errorMessage(reason);
+  }
+  finally {
+    if (version === loadVersion && !disposed) loading.value = false;
+  }
 }
 
 function openImport() {
-  manifest.value = ""; archive.value = undefined; recommended.value = true; formError.value = ""; importDialog.value = true;
+  manifest.value = ""; archive.value = undefined; recommended.value = true; formError.value = "";
+  if (importArchiveInput.value) importArchiveInput.value.value = "";
+  importDialog.value = true;
 }
 
 function onArchive(event: Event) {
@@ -76,27 +89,57 @@ async function importRelease() {
 }
 
 async function recommend(row: KernelRelease) {
+  if (actionWorking.value) return;
+  actionWorking.value = true;
   try { await kernelApi.recommend(row.id); ElMessage.success("已设为该平台和架构的推荐内核"); await load(); }
   catch (reason) { ElMessage.error(errorMessage(reason)); }
+  finally { actionWorking.value = false; }
 }
 
 async function download(row: KernelRelease) {
-  try { const ticket = await kernelApi.download(row.id); window.open(ticket.url, "_blank", "noopener,noreferrer"); }
-  catch (reason) { ElMessage.error(errorMessage(reason)); }
+  if (actionWorking.value) return;
+  actionWorking.value = true;
+  try {
+    const ticket = await kernelApi.download(row.id);
+    const link = document.createElement("a");
+    link.href = ticket.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  } catch (reason) { ElMessage.error(errorMessage(reason)); }
+  finally { actionWorking.value = false; }
 }
 
 async function disable(row: KernelRelease) {
+  if (actionWorking.value) return;
+  actionWorking.value = true;
   try { await ElMessageBox.confirm(`停用 ${row.version} 后，新店铺将不能再选择它，已绑定店铺不受影响。`, "停用内核", { type: "warning", confirmButtonText: "确认停用", cancelButtonText: "取消" }); }
-  catch { return; }
-  try { await kernelApi.disable(row.id); ElMessage.success("内核已停用"); await load(); }
+  catch { actionWorking.value = false; return; }
+  try {
+    const updated = await kernelApi.disable(row.id);
+    const index = releases.value.findIndex((release) => release.id === row.id);
+    if (index >= 0) releases.value[index] = updated;
+    ElMessage.success("内核已停用");
+  }
   catch (reason) { ElMessage.error(errorMessage(reason)); }
+  finally { actionWorking.value = false; }
 }
 
 async function restore(row: KernelRelease) {
+  if (actionWorking.value) return;
+  actionWorking.value = true;
   try { await ElMessageBox.confirm(`恢复 ${row.version} 后，新店铺可以重新选择它，但不会自动成为推荐版本。`, "恢复内核", { type: "warning", confirmButtonText: "确认恢复", cancelButtonText: "取消" }); }
-  catch { return; }
-  try { await kernelApi.restore(row.id); ElMessage.success("内核已恢复"); await load(); }
+  catch { actionWorking.value = false; return; }
+  try {
+    const updated = await kernelApi.restore(row.id);
+    const index = releases.value.findIndex((release) => release.id === row.id);
+    if (index >= 0) releases.value[index] = updated;
+    ElMessage.success("内核已恢复");
+  }
   catch (reason) { ElMessage.error(errorMessage(reason)); }
+  finally { actionWorking.value = false; }
 }
 
 function uploadDraft(row: KernelRelease) { draftRelease.value = row; archiveInput.value?.click(); }
@@ -117,8 +160,9 @@ async function onDraftArchive(event: Event) {
 }
 
 function stateLabel(value: string) { return value === "PUBLISHED" ? "已发布" : value === "DRAFT" ? "待上传" : value === "DISABLED" ? "已停用" : value; }
-function stateType(value: string) { return value === "PUBLISHED" ? "success" : value === "DRAFT" ? "warning" : "info"; }
+function stateType(value: string) { return value === "PUBLISHED" ? "success" : value === "DRAFT" ? "warning" : value === "DISABLED" ? "danger" : "info"; }
 onMounted(load);
+onBeforeUnmount(() => { disposed = true; loadVersion += 1; });
 </script>
 
 <template>
@@ -130,7 +174,7 @@ onMounted(load);
       </div>
       <div class="heading-actions">
         <el-button :icon="Refresh" :loading="loading" @click="load">刷新</el-button>
-        <el-button type="primary" :icon="Plus" :disabled="working" @click="openImport">导入内核</el-button>
+        <el-button type="primary" :icon="Plus" :disabled="working || actionWorking" @click="openImport">导入内核</el-button>
       </div>
     </div>
     <el-alert v-if="error" :title="error" type="error" :closable="false" show-icon class="section-alert">
@@ -152,7 +196,7 @@ onMounted(load);
         <el-table-column label="存储" width="100"><template #default="{ row }">{{ row.storageType }}</template></el-table-column>
         <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="stateType(row.state)" effect="light">{{ stateLabel(row.state) }}</el-tag></template></el-table-column>
         <el-table-column label="更新时间" width="175"><template #default="{ row }">{{ formatDate(row.updatedAt || row.createdAt) }}</template></el-table-column>
-        <el-table-column label="操作" width="330" fixed="right"><template #default="{ row }"><el-button v-if="row.state === 'PUBLISHED'" link type="primary" :disabled="working" @click="download(row)">下载</el-button><el-button v-if="row.state === 'DRAFT'" link type="primary" :icon="Upload" :disabled="working" @click="uploadDraft(row)">上传并发布</el-button><el-button v-if="row.state === 'PUBLISHED' && !row.recommended" link type="primary" :icon="CircleCheck" :disabled="working" @click="recommend(row)">设为推荐</el-button><el-button v-if="row.state === 'PUBLISHED'" link type="danger" :icon="VideoPause" :disabled="working" @click="disable(row)">停用</el-button><el-button v-if="row.state === 'DISABLED'" link type="primary" :icon="VideoPlay" :disabled="working" @click="restore(row)">恢复</el-button></template></el-table-column>
+        <el-table-column label="操作" width="330" fixed="right"><template #default="{ row }"><el-button v-if="row.state === 'PUBLISHED'" link type="primary" :disabled="working || actionWorking" @click="download(row)">下载</el-button><el-button v-if="row.state === 'DRAFT'" link type="primary" :icon="Upload" :disabled="working || actionWorking" @click="uploadDraft(row)">上传并发布</el-button><el-button v-if="row.state === 'PUBLISHED' && !row.recommended" link type="primary" :icon="CircleCheck" :disabled="working || actionWorking" @click="recommend(row)">设为推荐</el-button><el-button v-if="row.state === 'PUBLISHED'" link type="danger" :icon="VideoPause" :disabled="working || actionWorking" @click="disable(row)">停用</el-button><el-button v-if="row.state === 'DISABLED'" link type="primary" :icon="VideoPlay" :disabled="working || actionWorking" @click="restore(row)">恢复</el-button></template></el-table-column>
       </el-table>
     </el-card>
 

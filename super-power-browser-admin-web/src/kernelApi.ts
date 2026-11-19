@@ -39,7 +39,12 @@ export const kernelApi = {
   }),
   recommend: (id: string) => request<KernelRelease>(`/kernels/${encodeURIComponent(id)}/recommend`, { method: "POST" }),
   disable: (id: string) => request<KernelRelease>(`/kernels/${encodeURIComponent(id)}/disable`, { method: "POST" }),
-  restore: (id: string) => request<KernelRelease>(`/kernels/${encodeURIComponent(id)}/restore`, { method: "POST" }),
+  restore: (id: string) => request<KernelRelease>(`/kernels/${encodeURIComponent(id)}/restore`, {
+    method: "POST",
+    // Keep restore requests consistent with the other JSON mutations when a
+    // reverse proxy applies different handling to an empty POST body.
+    body: "{}",
+  }),
 };
 
 export function kernelPlatform(value: string) {
